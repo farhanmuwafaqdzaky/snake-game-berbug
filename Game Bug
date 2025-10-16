@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Ular Penuh Bug!</title>
+    <!-- Memuat Tailwind CSS untuk styling dasar halaman -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        /* CSS Khusus untuk nuansa game jadul */
+        body {
+            font-family: 'Press Start 2P', cursive;
+            background-color: #1a1a2e; /* Dark theme */
+            color: #e5e5e5;
+        }
+        #gameCanvas {
+            border: 4px solid #00f080;
+            background-color: #12121e;
+            box-shadow: 0 0 20px rgba(0, 240, 128, 0.5);
+            border-radius: 8px;
+        }
+        .container {
+            max-width: 600px;
+            padding: 1rem;
+        }
+        .text-neon {
+            color: #00f080;
+            text-shadow: 0 0 5px rgba(0, 240, 128, 0.7);
+        }
+        .button-neon {
+            background-color: #00f080;
+            color: #1a1a2e;
+            transition: all 0.1s;
+            box-shadow: 0 4px 0 #00aa60;
+        }
+        .button-neon:active {
+            box-shadow: none;
+            transform: translateY(4px);
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen">
+
+    <div class="container mx-auto flex flex-col items-center space-y-6">
+        <h1 class="text-3xl font-bold text-neon mb-4">SNAKE (Versi Rusak!)</h1>
+
+        <div id="messageBox" class="text-center p-3 w-full text-lg font-mono rounded-lg bg-red-800 text-yellow-300 hidden">
+            <!-- Pesan Game Over/Info muncul di sini -->
+        </div>
+
+        <canvas id="gameCanvas" width="400" height="400"></canvas>
+
+        <div class="flex flex-col items-center space-y-2 w-full">
+            <p class="text-neon text-sm">SKOR: <span id="score">0</span></p>
+            <button id="startButton" class="button-neon px-6 py-3 rounded-lg font-bold">MULAI (atau Ulangi)</button>
+        </div>
+
+        <div class="w-full text-center text-sm mt-4 p-4 border border-gray-600 rounded-lg bg-gray-900">
+            <h2 class="text-xl text-yellow-400 mb-2">Instruksi: Cari 3 Bug Fatal!</h2>
+            <p>Gunakan tombol panah ($\uparrow$ $\downarrow$ $\leftarrow$ $\rightarrow$) untuk mengendalikan Ular.</p>
+        </div>
+    </div>
+
+    <script type="module">
+        // --- Game Setup ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('score');
+        const startButton = document.getElementById('startButton');
+        const messageBox = document.getElementById('messageBox');
+
+        const gridSize = 20; // 20x20 grid
+        const tileCount = canvas.width / gridSize;
+        let snake = [{x: 10, y: 10}];
+        let velocityX = 0;
+        let velocityY = 0;
+        let food = {x: 15, y: 15};
+        let score = 0;
+        let gameLoopId;
+        let isGameOver = true;
+        let nextVelocityX = 0;
+        let nextVelocityY = 0;
+
+
+        // --- Core Functions ---
+
+        function showMessage(text, isError = false) {
+            messageBox.textContent = text;
+            messageBox.classList.remove('hidden', 'bg-red-800', 'bg-green-800');
+            messageBox.classList.add(isError ? 'bg-red-800' : 'bg-green-800');
+        }
+
+        function drawGame() {
+            if (isGameOver) return;
+
+            // Update velocity after key press debounce
+            velocityX = nextVelocityX;
+            velocityY = nextVelocityY;
+
+            // 1. Pindahkan kepala ular
+            const head = {x: snake[0].x + velocityX, y: snake[0].y + velocityY};
+            
+            // Periksa batas dinding
+            if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) {
+                gameOver("Nabrak Dinding!");
+                return;
+            }
+
+            // Periksa tabrakan dengan diri sendiri
+            if (checkSelfCollision(head)) {
+                gameOver("Makan Ekor Sendiri!");
+                return;
+            }
+
+            // Tambahkan kepala baru
+            snake.unshift(head);
+
+
+            // 2. Cek apakah ular makan makanan
+            if (head.x === food.x && head.y === food.y) {
+                score++;
+                scoreDisplay.textContent = score;
+                generateFood();
+                // BUG #1: The tail is not popped when it doesn't eat food,
+                // BUT WE FORGOT TO POP THE TAIL IN THE ELSE BLOCK!
+                // Correct logic: if not eating, pop the tail.
+                // The bug is introduced by forgetting the else logic completely.
+            }
+
+            // 3. Membersihkan dan Menggambar Ulang
+            // Menggambar background hitam
+            ctx.fillStyle = '#12121e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Menggambar Makanan (Food)
+            ctx.fillStyle = '#FF4500'; // Merah
+            ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize - 1, gridSize - 1);
+
+            // Menggambar Ular (Snake)
+            ctx.fillStyle = '#00f080'; // Neon Hijau
+            snake.forEach(segment => {
+                ctx.fillRect(segment.x * gridSize, segment.y * gridSize, gridSize - 1, gridSize - 1);
+            });
+        }
+
+        function checkSelfCollision(head) {
+            // BUG #3: Flawed self-collision check. This loop starts at index 0 (the head)
+            // and checks the head against itself, causing an instant Game Over.
+            for (let i = 0; i < snake.length; i++) { // BUG: Should start at i = 1
+                if (head.x === snake[i].x && head.y === snake[i].y) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function generateFood() {
+            let newFoodPos;
+            let isOccupied;
+
+            do {
+                // Generate posisi random
+                newFoodPos = {
+                    x: Math.floor(Math.random() * tileCount),
+                    y: Math.floor(Math.random() * tileCount)
+                };
+
+                isOccupied = false;
+                // BUG #2: The check to see if the food is occupied by the snake is skipped!
+                // This means food can randomly spawn inside the snake's body.
+                // The 'isOccupied' flag is never properly set inside the loop.
+                // To introduce the bug, I will just remove the check loop entirely.
+
+                // Correct logic (but commented out for the bug):
+                /*
+                for (const segment of snake) {
+                    if (segment.x === newFoodPos.x && segment.y === newFoodPos.y) {
+                        isOccupied = true;
+                        break;
+                    }
+                }
+                */
+
+            } while (isOccupied); // This loop runs but 'isOccupied' is always false due to the missing check!
+
+            food = newFoodPos;
+        }
+
+        function gameOver(reason) {
+            isGameOver = true;
+            clearInterval(gameLoopId);
+            showMessage(`GAME OVER! ${reason} Skor Akhir: ${score}`, true);
+            startButton.textContent = 'COBA LAGI';
+        }
+
+        function resetGame() {
+            isGameOver = false;
+            snake = [{x: 10, y: 10}];
+            velocityX = 1; // Start moving right
+            velocityY = 0;
+            nextVelocityX = 1;
+            nextVelocityY = 0;
+            score = 0;
+            scoreDisplay.textContent = score;
+            messageBox.classList.add('hidden');
+            generateFood();
+            
+            // Set interval for game loop (5 frames per second)
+            // Note: This speed is intentionally slow for easy debugging/testing
+            gameLoopId = setInterval(drawGame, 1000 / 5);
+        }
+        
+        // --- Event Listeners ---
+
+        // Fungsi untuk menangani perubahan arah
+        function setDirection(dx, dy) {
+            // Ini untuk mencegah ular bergerak ke belakang secara instan (e.g., dari kanan ke kiri)
+            const movingHorizontally = Math.abs(velocityX) === 1;
+            const movingVertically = Math.abs(velocityY) === 1;
+
+            if (dx !== 0 && movingHorizontally) return; // Mencegah balik arah horizontal
+            if (dy !== 0 && movingVertically) return;   // Mencegah balik arah vertikal
+
+            // Update nextVelocity for the next frame
+            nextVelocityX = dx;
+            nextVelocityY = dy;
+        }
+
+        document.addEventListener('keydown', (e) => {
+            switch (e.key) {
+                case 'ArrowUp':
+                case 'w':
+                    setDirection(0, -1);
+                    break;
+                case 'ArrowDown':
+                case 's':
+                    setDirection(0, 1);
+                    break;
+                case 'ArrowLeft':
+                case 'a':
+                    setDirection(-1, 0);
+                    break;
+                case 'ArrowRight':
+                case 'd':
+                    setDirection(1, 0);
+                    break;
+            }
+        });
+
+        startButton.addEventListener('click', () => {
+            resetGame();
+        });
+
+        // Tampilkan pesan awal
+        window.onload = () => {
+            ctx.fillStyle = '#12121e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            showMessage("Tekan MULAI untuk bermain... dan temukan bug-nya!", false);
+        };
+    </script>
+</body>
+</html>
