@@ -126,6 +126,8 @@
                 // BUT WE FORGOT TO POP THE TAIL IN THE ELSE BLOCK!
                 // Correct logic: if not eating, pop the tail.
                 // The bug is introduced by forgetting the else logic completely.
+            } else {
+                snake.pop();
             }
 
             // 3. Membersihkan dan Menggambar Ulang
